@@ -10,7 +10,7 @@ type Book {
     price: number
 }
 
-type User {
+type Author {
     id: string
     name: string
 }
@@ -31,9 +31,9 @@ type BookUpdateInput {
         // subscription
         onNewBook() >> Book
     }
-    users: {
-        find(uids: [string?]?): [User?]
-        findOne(uid: string): User
+    authors: {
+        find(uids: [string?]?): [Author?]
+        findOne(uid: string): Author?
     }
 }
 ```
@@ -43,17 +43,25 @@ type BookUpdateInput {
 // let 把值绑定到名称
 // $ 调用服务
 
-// 查询一本书的书名和作者
+// 查询一本书的作者
 
 use bookId in
 let book = $books.findOne(bookId) in
-if book then
-    let user = $users.findOne(book.authorId) in
-    {
-        bookName: book.name,
-        author: user.name
-    }
+if book == null then
+    let author = $authors.findOne(book.authorId) in
+    if author != null then
+        author.name
+    end
 end
+
+// 或者使用 ?> 管道操作符
+// 如果 $books.findOne(bookId) 返回 null，则忽略后面的调用，直接返回 null
+
+use bookId in
+$books.findOne(bookId)
+?> @select (book => book.authorId)
+|> $authors.findOne
+?> @select (author => author.name)
 ```
 
 ```
@@ -67,10 +75,10 @@ use bookIds in
 
 let books = $books.find(bookIds) in
 let authorIds = books |> @map (book => book?.authorId) in
-let users = $users.find(authorIds) in
+let authors = $authors.find(authorIds) in
 books |> @map ((book, index) => {
     bookName: book.name,
-    author: users[i]?.name
+    author: authors[i]?.name
 })
 ```
 
@@ -92,12 +100,11 @@ begin transaction with
 end
 ```
 
-
 ```
 // 订阅指定作者的新书的书名
 
 use authorId in
 $books.onNewBook()
-|> @filter (book => book.autherId = authorId)
+|> @filter (book => book.authorId = authorId)
 |> @select (book => book.name)
 ```
