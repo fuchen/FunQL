@@ -27,6 +27,9 @@ type BookUpdateInput {
         find(bookIds: [string?]?): [Book?]
         findOne(bookId: string): Book?
         update(books: [BookUpdateInput]): void
+
+        // subscription
+        onNewBook() >> Book
     }
     users: {
         find(uids: [string?]?): [User?]
@@ -45,7 +48,7 @@ type BookUpdateInput {
 use bookId in
 let book = $books.findOne(bookId) in
 if book then
-    let user = $users.findOne(book.authorId);
+    let user = $users.findOne(book.authorId) in
     {
         bookName: book.name,
         author: user.name
@@ -81,10 +84,20 @@ books |> @map ((book, index) => {
 
 begin transaction with
     let books = $books.find(null) in
-    let newPrices = books |> map (book => {
+    let newPrices = books |> @map (book => {
         id: book.id
         newPrice: book.price * 0.8
     }) in
     $books.update(newPrices)
 end
+```
+
+
+```
+// 订阅指定作者的新书的书名
+
+use authorId in
+$books.onNewBook()
+|> @filter (book => book.autherId = authorId)
+|> @select (book => book.name)
 ```
